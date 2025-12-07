@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="LargeActionCard">
+        <attr name="cardIcon" format="reference" />
+        <attr name="cardText" format="string" />
+        <attr name="cardSubtext" format="string" />
+    </declare-styleable>
+
+    <declare-styleable name="LargeActionLabel">
+        <attr name="labelIcon" format="reference" />
+        <attr name="labelText" format="string" />
+        <attr name="labelSubtext" format="string" />
+    </declare-styleable>
+
+    <attr name="colorStopped" format="color" />
+</resources>

@@ -1,94 +1,88 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:scrollbars="none"
     tools:context=".FirstFragment">
 
-    <androidx.constraintlayout.widget.ConstraintLayout
+    <LinearLayout
+        android:id="@+id/content_container"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:padding="30dp">
+        android:layout_height="wrap_content"
+        android:animateLayoutChanges="true"
+        android:clipToPadding="false"
+        android:orientation="vertical"
+        android:paddingHorizontal="@dimen/main_padding_horizontal"
+        android:paddingTop="24dp"
+        android:paddingBottom="24dp">
 
-        <EditText
-            android:id="@+id/socks5"
+        <!-- Logo and App Name Banner -->
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_marginTop="16dp"
-            android:layout_marginBottom="16dp"
-            android:autofillHints="0.0.0.0:1055"
-            android:ems="10"
-            android:inputType="text"
-            android:text="Socks5"
-            app:layout_constraintBottom_toTopOf="@+id/sshserver"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintVertical_bias="0.0"
-            tools:layout_editor_absoluteX="65dp" />
-
-        <EditText
-            android:id="@+id/sshserver"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_marginTop="16dp"
-            android:layout_marginBottom="16dp"
-            android:autofillHints="0.0.0.0:1056"
-            android:ems="10"
-            android:inputType="text"
-            android:text="SSH"
-            app:layout_constraintTop_toBottomOf="@+id/socks5"
-            app:layout_constraintBottom_toTopOf="@+id/authkey"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            tools:layout_editor_absoluteX="81dp"
-            tools:layout_editor_absoluteY="61dp" />
-
-        <EditText
-            android:id="@+id/authkey"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_marginTop="16dp"
-            android:layout_marginBottom="16dp"
-            android:autofillHints="tskey-xxxx"
-            android:ems="10"
-            android:inputType="text"
-            android:text="AuthKey"
-            app:layout_constraintTop_toBottomOf="@+id/sshserver"
-            app:layout_constraintBottom_toTopOf="@+id/button_first"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            tools:layout_editor_absoluteX="81dp"
-            tools:layout_editor_absoluteY="61dp" />
-<!--        <TextView-->
-<!--            android:id="@+id/textview_first"-->
-<!--            android:layout_width="match_parent"-->
-<!--            android:layout_height="match_parent"-->
-<!--            android:layout_marginTop="16dp"-->
-<!--            android:layout_marginBottom="16dp"-->
-<!--            android:text="@string/lorem_ipsum"-->
-<!--            app:layout_constraintBottom_toTopOf="@+id/button_first"-->
-<!--            app:layout_constraintTop_toBottomOf="@+id/sshserver"-->
-<!--            app:layout_constraintEnd_toEndOf="parent"-->
-<!--            app:layout_constraintHorizontal_bias="0.497"-->
-<!--            app:layout_constraintStart_toStartOf="parent"-->
-<!--            app:layout_constraintVertical_bias="0.25" />-->
-
-        <Button
-            android:id="@+id/button_first"
-            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:layout_marginBottom="16dp"
-            android:text="@string/next"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHorizontal_bias="0.498"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/sshserver"
-            app:layout_constraintVertical_bias="1.0" />
+            android:gravity="center_vertical"
+            android:minHeight="@dimen/main_top_banner_height"
+            android:orientation="horizontal">
 
+            <FrameLayout
+                android:layout_width="@dimen/large_item_header_layout_size"
+                android:layout_height="@dimen/large_item_header_layout_size">
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
-</androidx.core.widget.NestedScrollView>
+                <ImageView
+                    android:layout_width="@dimen/main_logo_size"
+                    android:layout_height="@dimen/main_logo_size"
+                    android:layout_gravity="center"
+                    android:contentDescription="@string/app_name"
+                    android:src="@drawable/logo" />
+            </FrameLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/app_name"
+                android:textAppearance="@style/TextAppearance.Material3.HeadlineSmall"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Status Card -->
+        <io.github.pk5ls20.tailscaled.view.LargeActionCard
+            android:id="@+id/status_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginVertical="@dimen/main_card_margin_vertical"
+            android:theme="@style/Theme.Tailscaled.StatusCard"
+            app:cardIcon="@drawable/ic_outline_not_interested"
+            app:cardSubtext="@string/tap_to_start"
+            app:cardText="@string/stopped" />
+
+        <!-- Logs -->
+        <io.github.pk5ls20.tailscaled.view.LargeActionLabel
+            android:id="@+id/logs_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginVertical="@dimen/main_label_margin_vertical"
+            app:labelIcon="@drawable/ic_baseline_assignment"
+            app:labelText="@string/logs" />
+
+        <!-- Settings -->
+        <io.github.pk5ls20.tailscaled.view.LargeActionLabel
+            android:id="@+id/settings_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginVertical="@dimen/main_label_margin_vertical"
+            app:labelIcon="@drawable/ic_baseline_settings"
+            app:labelText="@string/settings" />
+
+        <!-- About -->
+        <io.github.pk5ls20.tailscaled.view.LargeActionLabel
+            android:id="@+id/about_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginVertical="@dimen/main_label_margin_vertical"
+            app:labelIcon="@drawable/ic_baseline_info"
+            app:labelText="@string/about" />
+
+    </LinearLayout>
+</ScrollView>

@@ -1,9 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
     <style name="Base.Theme.Tailscaled" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+        <item name="colorPrimary">@color/color_primary_light</item>
+        <item name="colorOnPrimary">@android:color/white</item>
+        <item name="colorStopped">@color/color_stopped</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/color_light_background</item>
     </style>
 
     <style name="Theme.Tailscaled" parent="Base.Theme.Tailscaled" />
+
+    <!-- Dark theme for status card (white text) -->
+    <style name="Theme.Tailscaled.StatusCard" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorOnSurface">@android:color/white</item>
+    </style>
 </resources>

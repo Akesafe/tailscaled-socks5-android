@@ -19,3 +19,4 @@ local.properties
 .idea
 app/src/main/jniLibs/arm64-v8a/libtailscaled.so
 app/src/main/jniLibs/x86_64/libtailscaled.so
+app/release/

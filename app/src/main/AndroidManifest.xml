@@ -37,6 +37,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Tailscaled" />
+
+        <activity
+            android:name=".LogsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Tailscaled" />
     </application>
 
 </manifest>

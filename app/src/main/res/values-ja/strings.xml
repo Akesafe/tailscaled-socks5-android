@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="back">戻る</string>
+
+    <!-- Main screen -->
+    <string name="running">実行中</string>
+    <string name="stopped">停止中</string>
+    <string name="tap_to_start">タップして開始</string>
+    <string name="tap_to_stop">タップして停止</string>
+
+    <!-- Menu items -->
+    <string name="logs">ログ</string>
+    <string name="settings">設定</string>
+    <string name="about">このアプリについて</string>
+
+    <!-- Settings screen -->
+    <string name="settings_title">設定</string>
+    <string name="socks5_address">Socks5 プロキシアドレス</string>
+    <string name="socks5_hint">例: 0.0.0.0:1055</string>
+    <string name="tailscale_token">Tailscale トークン</string>
+    <string name="tailscale_token_hint">Tailscale 認証キーを入力</string>
+
+    <!-- About dialog -->
+    <string name="version_format">バージョン %1$s</string>
+
+    <!-- Logs screen -->
+    <string name="logs_title">ログ</string>
+    <string name="no_logs">ログはまだありません</string>
+
+    <!-- Permission -->
+    <string name="notification_permission_title">通知の許可</string>
+    <string name="notification_permission_message">Tailscaled はフォアグラウンドサービスとして実行し、接続を維持するために通知の許可が必要です。</string>
+
+    <!-- Notification -->
+    <string name="notification_title">Tailscaled は実行中です</string>
+</resources>

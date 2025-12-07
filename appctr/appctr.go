@@ -2,33 +2,139 @@ package appctr
 
 import (
 	"bufio"
-	"crypto/x509"
-	"encoding/pem"
+	"context"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+	"sync"
 	"syscall"
 	"time"
-	"unsafe"
 
-	"github.com/creack/pty"
-	"github.com/gliderlabs/ssh"
-	"github.com/pkg/sftp"
-	gossh "golang.org/x/crypto/ssh"
 	_ "golang.org/x/mobile/bind"
 )
 
-func setWinsize(f *os.File, w, h int) {
-	_, _, _ = syscall.Syscall(syscall.SYS_IOCTL, f.Fd(), uintptr(syscall.TIOCSWINSZ),
-		uintptr(unsafe.Pointer(&struct{ h, w, x, y uint16 }{uint16(h), uint16(w), 0, 0})))
+var cmd *exec.Cmd
+var PC pathControl
+
+// LogManager manages log storage and retrieval
+type LogManager struct {
+	mu      sync.RWMutex
+	logs    []string
+	maxSize int
 }
 
-var cmd *exec.Cmd
-var sshserver *ssh.Server
-var PC pathControl
+var logManager = &LogManager{
+	logs:    make([]string, 0, 10000),
+	maxSize: 10000,
+}
+
+// AddLog adds a log entry
+func (lm *LogManager) AddLog(entry string) {
+	lm.mu.Lock()
+	defer lm.mu.Unlock()
+
+	// Trim if exceeds max size
+	if len(lm.logs) >= lm.maxSize {
+		lm.logs = lm.logs[len(lm.logs)/2:]
+	}
+	lm.logs = append(lm.logs, entry)
+}
+
+// GetLogs returns all logs as a single string
+func (lm *LogManager) GetLogs() string {
+	lm.mu.RLock()
+	defer lm.mu.RUnlock()
+	return strings.Join(lm.logs, "\n")
+}
+
+// GetLogCount returns the number of log entries
+func (lm *LogManager) GetLogCount() int {
+	lm.mu.RLock()
+	defer lm.mu.RUnlock()
+	return len(lm.logs)
+}
+
+// ClearLogs clears all logs
+func (lm *LogManager) ClearLogs() {
+	lm.mu.Lock()
+	defer lm.mu.Unlock()
+	lm.logs = make([]string, 0, 10000)
+}
+
+// GetLogs returns all logs as a string (exported for Android)
+func GetLogs() string {
+	return logManager.GetLogs()
+}
+
+// GetLogCount returns the number of log entries (exported for Android)
+func GetLogCount() int {
+	return logManager.GetLogCount()
+}
+
+// ClearLogs clears all logs (exported for Android)
+func ClearLogs() {
+	logManager.ClearLogs()
+}
+
+// dualHandler is a custom slog.Handler that writes to both stdout and LogManager
+type dualHandler struct {
+	textHandler slog.Handler
+}
+
+func newDualHandler() *dualHandler {
+	return &dualHandler{
+		textHandler: slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		}),
+	}
+}
+
+func (h *dualHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	return true
+}
+
+func (h *dualHandler) Handle(ctx context.Context, r slog.Record) error {
+	// Format log entry for LogManager
+	timestamp := r.Time.Format("2006-01-02 15:04:05.000")
+	level := r.Level.String()
+
+	// Build message with attributes
+	var sb strings.Builder
+	sb.WriteString(r.Message)
+	r.Attrs(func(a slog.Attr) bool {
+		sb.WriteString(" ")
+		sb.WriteString(a.Key)
+		sb.WriteString("=")
+		sb.WriteString(fmt.Sprintf("%v", a.Value.Any()))
+		return true
+	})
+
+	entry := fmt.Sprintf("[%s] [%s] %s", timestamp, level, sb.String())
+	logManager.AddLog(entry)
+
+	// Also write to stdout
+	return h.textHandler.Handle(ctx, r)
+}
+
+func (h *dualHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &dualHandler{
+		textHandler: h.textHandler.WithAttrs(attrs),
+	}
+}
+
+func (h *dualHandler) WithGroup(name string) slog.Handler {
+	return &dualHandler{
+		textHandler: h.textHandler.WithGroup(name),
+	}
+}
+
+func init() {
+	// Set custom slog handler at startup
+	slog.SetDefault(slog.New(newDualHandler()))
+}
 
 type Closer interface {
 	Close() error
@@ -37,7 +143,6 @@ type Closer interface {
 func IsRunning() bool { return cmd != nil && cmd.Process != nil }
 
 type StartOptions struct {
-	SSHServer     string
 	ExecPath      string
 	SocketPath    string
 	StatePath     string
@@ -50,34 +155,20 @@ func Start(opt *StartOptions) {
 	if IsRunning() {
 		return
 	}
-
 	if opt.Socks5Server == "" {
 		opt.Socks5Server = ":1055"
 	}
-
 	PC = newPathControl(opt.ExecPath, opt.SocketPath, opt.StatePath)
-
-	if opt.SSHServer != "" {
-		go func() {
-			if err := sshServer(opt.SSHServer, PC); err != nil {
-				slog.Error("ssh server", "err", err)
-			}
-		}()
-	}
-
 	go func() {
 		err := tailscaledCmd(PC, opt.Socks5Server)
 		if err != nil {
 			slog.Error("tailscaled cmd", "err", err)
 		}
-
 		Stop()
-
 		if opt.CloseCallBack != nil {
 			opt.CloseCallBack.Close()
 		}
 	}()
-
 	if opt.AuthKey != "" {
 		go registerMachineWithAuthKey(PC, opt.AuthKey)
 	}
@@ -114,15 +205,8 @@ func registerMachineWithAuthKey(PC pathControl, authKey string) {
 	}
 }
 func Stop() {
-	if sshserver != nil {
-		slog.Info("stop ssh server")
-		sshserver.Close()
-		sshserver = nil
-	}
-
 	x := cmd
 	cmd = nil
-
 	if x != nil && x.Process != nil {
 		slog.Info("stop tailscaled cmd")
 		_ = x.Process.Signal(syscall.SIGTERM)
@@ -139,7 +223,6 @@ func rm(path ...string) {
 	if len(path) == 0 {
 		return
 	}
-
 	args := []string{"-rf"}
 	args = append(args, path...)
 	data, err := exec.Command("/system/bin/rm", args...).CombinedOutput()
@@ -250,124 +333,3 @@ func tailscaledCmd(p pathControl, socks5host string) error {
 
 	return cmd.Run()
 }
-
-func sshServer(addr string, pc pathControl) error {
-	p, _ := pem.Decode([]byte(PrivateKey))
-	key, _ := x509.ParsePKCS1PrivateKey(p.Bytes)
-
-	signer, err := gossh.NewSignerFromKey(key)
-	if err != nil {
-		return err
-	}
-
-	ssh_server := ssh.Server{
-		Addr:        addr,
-		HostSigners: []ssh.Signer{signer},
-		SubsystemHandlers: map[string]ssh.SubsystemHandler{
-			"sftp": sftpHandler,
-		},
-		Handler: func(s ssh.Session) {
-			ptyHandler(s, pc)
-		},
-	}
-
-	sshserver = &ssh_server
-
-	slog.Info("starting ssh server", "host", addr)
-	slog.Info("ssh server", "err", ssh_server.ListenAndServe())
-	return nil
-}
-
-var ptyWelcome = `
-Welcome to Tailscaled SSH
-	Tailscaled: %s
-	Work Dir: %s
-	RemoteAddr: %s
-`
-
-func ptyHandler(s ssh.Session, pc pathControl) {
-	_, _ = fmt.Fprintf(s, ptyWelcome, pc.TailscaledSo(), pc.DataDir(), s.RemoteAddr())
-
-	slog.Info("new pty session", "remote addr", s.RemoteAddr())
-
-	cmd := exec.Command("/system/bin/sh")
-	cmd.Dir = pc.DataDir()
-	ptyReq, winCh, isPty := s.Pty()
-	if isPty {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("TERM=%s", ptyReq.Term))
-		f, err := pty.Start(cmd)
-		if err != nil {
-			slog.Error("start pty", "err", err)
-			return
-		}
-		go func() {
-			for win := range winCh {
-				setWinsize(f, win.Width, win.Height)
-			}
-		}()
-		go func() {
-			_, _ = io.Copy(f, s) // stdin
-			f.Close()
-		}()
-		_, _ = io.Copy(s, f) // stdout
-		s.Close()
-		err = cmd.Wait()
-		slog.Info("session exit", "remote addr", s.RemoteAddr(), "wait error", err)
-	} else {
-		_, _ = io.WriteString(s, "No PTY requested.\n")
-		_ = s.Exit(1)
-	}
-}
-
-// sftpHandler handler for SFTP subsystem
-func sftpHandler(sess ssh.Session) {
-	slog.Info("new sftp session", "remote addr", sess.RemoteAddr())
-	debugStream := io.Discard
-	serverOptions := []sftp.ServerOption{
-		sftp.WithDebug(debugStream),
-	}
-	server, err := sftp.NewServer(
-		sess,
-		serverOptions...,
-	)
-	if err != nil {
-		slog.Error("sftp server init", "err", err)
-		return
-	}
-	if err := server.Serve(); err == io.EOF {
-		server.Close()
-		slog.Info("sftp client exited session.")
-	} else if err != nil {
-		slog.Error("sftp server completed", "err", err)
-	}
-
-	slog.Info("sftp session exited", "remote addr", sess.RemoteAddr())
-}
-
-var PrivateKey = `-----BEGIN RSA PRIVATE KEY-----
-MIIEpQIBAAKCAQEA0ludCFgG93sH//e/5CxAFG/PTjclfTDKaXpl2EBZQmoZSfJE
-/4UCy/tUynYEovEbBT3PDyw7LmVnnyktetV4ra3OtBM0iNdZnZeIvW0kQaC7alGe
-3sHzNfTxT60w3drrjLzOX+Wd9E/WZ4ScXzhgJ8kzqtRBbGgSukTSxgPgz89XiIDI
-P+j721TrQYgOOnje4+SGEWL3TTAENDayk6RWom/58LstYz42TdaBFWHz+W2nG+Dw
-EkzywnKGuMpccdNOvEnaoxVUZ+6OC7qOGfjSKBJIDmj39+XaVeduLMbjAy8cGAl4
-n3HFTBMPupRqC6sbSrgpZ4MiNfrElF4cDXrBWQIDAQABAoIBAF6klVxhrpC+K/VA
-VHemaRZIz+6S5S0UPJ2EUjofiYlWDxa0B9Mm1wFLjPSicKeW7t9G1dgvwFi5iwuT
-DUFMtkT+BBgE5AgFS+6ZdQ41ArD8ThYhrubuQCywjbmZZHkMvBnQANIojw6StRZS
-FcDJrol3/uUHJoBNus9Pk70/lXApOfgy+Yg3RTIPy+AMHr4exSGEGATFMFrOyiit
-+xYBSnHFQzt63UsLUL5zWDFcljH5SmQJAkoCtrN3oiZRBb4v3TWYzSvDIR8BTuoD
-Fj/EI9kWFyzx0MBpfOcU+ggNw1KSX+fsyRrMnirFg7HB7F7wL9MiJbihUVnbxDs8
-Fy4vr2ECgYEA+tCmmr258UQcdxll0GgNz/WcY03HJlcZkfnnUpJKyb+K3Lpc5ekz
-BrXKYNZ0A4gm8/8P55ykIPbWH2mi6/cDIkvsoGYOCac5P2Nf+W54wWtFzjuKx+x6
-aoIKOCoQr69XM+KrbwZoku8g6VatRsJ1oMupZM3ucaTOBCm0hKVPAy0CgYEA1rTb
-f/F7K8eJUbmX7dK3tdUuDxDMnf9Zp47JGZOJFuwZvHhZ7nOPw2HntSwVIk651pxc
-kZfOWswPPHRxLztnEtBnwskM8e8RHMJHTeLalpHkdBoWT7KQq+uIU0KhiuRiqPcu
-I16tZr0ciCgn9QmmtCJH+bpATMy5ZpDTfNHpQl0CgYEA4pzUeulC8F8WzPDwkb0C
-BcwnMX3bmqOFoePGAk/VLLVYNJhZSQ1LIhvsL1Rz26EPeNMSPrTDglkjG5ypLEOw
-3DL3J/Eta8FgMwqJc2dByZgvqOcZPAtIi6TUsOwoyWNGCcYaGKUUpPVTqh+7TTxz
-ZQW+FisN7jX2QcKgrFxjqD0CgYEAgALAxB2T1FxZcRJ4lOEHizAZD/5yINl3+MDX
-AZrHJ5WJGqee5t6bnmAnKAuqZhQOFPiQ8HVUISp9Awxh10lRgRQkaSw5vZ1N1Jm4
-raVNsmw1i0tqdgX+36HEW+/kJM1aTWdiaNAwDos+EafvetdQPyIZS7lSUPfWqmI6
-1bbJnjkCgYEA6M9HYlnaVPAHfguDugSeLJOia46Ui7aJh43znLlU/PoUdRRoBUmi
-hUwJg5EHLSdbFj6vtwhqdnUwcH8v3HYK4vbUVamvCYF6kKCRmL2lyz9SH6yxHcPJ
-zeMifjk2UYMZK8A0Ik7GxsHfseOx9QeWRbX8VR9QPuuwpGMVdQkeBgA=
------END RSA PRIVATE KEY-----`
