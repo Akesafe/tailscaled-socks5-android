@@ -1,6 +1,5 @@
 package io.github.pk5ls20.tailscaled
 
-import android.content.Context
 import android.content.SharedPreferences
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
@@ -16,16 +15,22 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var binding: ActivitySettingsBinding
     private lateinit var sharedPreferences: SharedPreferences
 
+    private companion object {
+        private const val PREFS_NAME = "appctr"
+        private const val KEY_SOCKS5 = "socks5"
+        private const val KEY_AUTHKEY = "authkey"
+        private const val KEY_FORCE_BG = "force_bg"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Enable edge-to-edge
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         binding = ActivitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        sharedPreferences = getSharedPreferences("appctr", Context.MODE_PRIVATE)
+        sharedPreferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
 
         setupImmersiveToolbar()
         loadSettings()
@@ -63,21 +68,29 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun loadSettings() {
-        binding.socks5Input.setText(sharedPreferences.getString("socks5", "0.0.0.0:1055"))
-        binding.tokenInput.setText(sharedPreferences.getString("authkey", ""))
+        binding.socks5Input.setText(sharedPreferences.getString(KEY_SOCKS5, "0.0.0.0:1055"))
+        binding.tokenInput.setText(sharedPreferences.getString(KEY_AUTHKEY, ""))
+        binding.forceBgSwitch.isChecked = sharedPreferences.getBoolean(KEY_FORCE_BG, false)
     }
 
     private fun setupTextWatchers() {
         binding.socks5Input.doAfterTextChanged { text ->
             sharedPreferences.edit().apply {
-                putString("socks5", text.toString())
+                putString(KEY_SOCKS5, text.toString())
                 apply()
             }
         }
 
         binding.tokenInput.doAfterTextChanged { text ->
             sharedPreferences.edit().apply {
-                putString("authkey", text.toString())
+                putString(KEY_AUTHKEY, text.toString())
+                apply()
+            }
+        }
+
+        binding.forceBgSwitch.setOnCheckedChangeListener { _, isChecked ->
+            sharedPreferences.edit().apply {
+                putBoolean(KEY_FORCE_BG, isChecked)
                 apply()
             }
         }

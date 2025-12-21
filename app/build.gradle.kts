@@ -1,7 +1,5 @@
 @file:Suppress("UNUSED_EXPRESSION")
 
-import com.android.build.api.dsl.Packaging
-
 plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.kotlinAndroid)
@@ -16,7 +14,7 @@ android {
         minSdk = 24
         targetSdk = 36
         versionCode = 1
-        versionName = "1.1"
+        versionName = "1.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

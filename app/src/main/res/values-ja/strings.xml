@@ -33,4 +33,7 @@
 
     <!-- Notification -->
     <string name="notification_title">Tailscaled は実行中です</string>
+
+    <string name="force_bg_title">バックグラウンド動作を強制</string>
+    <string name="force_bg_subtitle">バックグラウンドでの動作を可能な限り維持します</string>
 </resources>

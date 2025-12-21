@@ -22,6 +22,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import appctr.Appctr
 import com.google.android.material.color.MaterialColors
 import io.github.pk5ls20.tailscaled.databinding.DialogAboutBinding
 import io.github.pk5ls20.tailscaled.databinding.FragmentFirstBinding
@@ -45,7 +46,6 @@ class FirstFragment : Fragment() {
     private val bReceiver: BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             Log.d(TAG, "onReceive: ${intent.action}")
-
             when (intent.action) {
                 "START" -> {
                     isRunning = true
@@ -93,14 +93,21 @@ class FirstFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
         setupBroadcastReceiver()
         bindToService()
         setupClickListeners()
         updateLandscapePadding()
+        syncRunningState()
+    }
 
-        // Set initial status card color
-        updateStatusCard(false)
+    override fun onResume() {
+        super.onResume()
+        syncRunningState()
+    }
+
+    private fun syncRunningState() {
+        isRunning = this.context?.let { c -> ProxyState.isUserLetRunning(c) } ?: Appctr.isRunning()
+        updateStatusCard(isRunning)
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -109,7 +116,6 @@ class FirstFragment : Fragment() {
     }
 
     private fun updateLandscapePadding() {
-        val ctx = context ?: return
         val displayMetrics = resources.displayMetrics
         val minWidth = resources.getDimensionPixelSize(R.dimen.surface_landscape_min_width)
 
@@ -196,14 +202,24 @@ class FirstFragment : Fragment() {
         if (running) {
             binding.statusCard.text = getString(R.string.running)
             binding.statusCard.subtext = getString(R.string.tap_to_stop)
-            binding.statusCard.icon = ContextCompat.getDrawable(ctx, R.drawable.ic_outline_check_circle)
-            val colorRunning = MaterialColors.getColor(ctx, android.R.attr.colorPrimary, ContextCompat.getColor(ctx, R.color.color_running))
+            binding.statusCard.icon =
+                ContextCompat.getDrawable(ctx, R.drawable.ic_outline_check_circle)
+            val colorRunning = MaterialColors.getColor(
+                ctx,
+                android.R.attr.colorPrimary,
+                ContextCompat.getColor(ctx, R.color.color_running)
+            )
             binding.statusCard.setCardBackgroundColor(colorRunning)
         } else {
             binding.statusCard.text = getString(R.string.stopped)
             binding.statusCard.subtext = getString(R.string.tap_to_start)
-            binding.statusCard.icon = ContextCompat.getDrawable(ctx, R.drawable.ic_outline_not_interested)
-            val colorStopped = MaterialColors.getColor(ctx, R.attr.colorStopped, ContextCompat.getColor(ctx, R.color.color_stopped))
+            binding.statusCard.icon =
+                ContextCompat.getDrawable(ctx, R.drawable.ic_outline_not_interested)
+            val colorStopped = MaterialColors.getColor(
+                ctx,
+                R.attr.colorStopped,
+                ContextCompat.getColor(ctx, R.color.color_stopped)
+            )
             binding.statusCard.setCardBackgroundColor(colorStopped)
         }
     }
@@ -235,6 +251,7 @@ class FirstFragment : Fragment() {
                 ) == PackageManager.PERMISSION_GRANTED -> {
                     startTailscaledService()
                 }
+
                 shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS) -> {
                     AlertDialog.Builder(ctx)
                         .setTitle(R.string.notification_permission_title)
@@ -247,6 +264,7 @@ class FirstFragment : Fragment() {
                         }
                         .show()
                 }
+
                 else -> {
                     requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }

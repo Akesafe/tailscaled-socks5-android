@@ -4,6 +4,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
@@ -13,6 +14,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.Message
 import android.os.Messenger
+import android.service.quicksettings.TileService
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.getSystemService
@@ -20,15 +22,32 @@ import appctr.Appctr
 import appctr.Closer
 import appctr.StartOptions
 
-
 class TailscaledService : Service() {
     private val notification by lazy { application.getSystemService<NotificationManager>()!! }
     private lateinit var sharedPreferences: SharedPreferences
 
     override fun onCreate() {
         super.onCreate()
+        Log.d(TAG, "TailscaledService: onCreate")
         mMessenger = Messenger(IncomingHandler(this))
-        sharedPreferences = getSharedPreferences("appctr", Context.MODE_PRIVATE)
+        sharedPreferences = getSharedPreferences("appctr", MODE_PRIVATE)
+        if (ProxyState.isUserLetRunning(this) && !ProxyState.isActualRunning()) {
+            Log.d(TAG, "TailscaledService: ProxyState last is running, try to start tailscaled")
+            // whether we need to start tailscaled
+            if (sharedPreferences.getBoolean(
+                    "force_bg",
+                    false
+                )
+            ) {
+                // keep state & restart service silently
+                mMessenger.send(Message.obtain().apply {
+                    what = MSG_START
+                })
+            } else {
+                // reset state
+                ProxyState.setUserState(this, false)
+            }
+        }
     }
 
     private fun startNotification() {
@@ -38,7 +57,7 @@ class TailscaledService : Service() {
                 NotificationChannel(
                     packageName,
                     "Tailscaled",
-                    NotificationManager.IMPORTANCE_MIN
+                    NotificationManager.IMPORTANCE_HIGH
                 )
             )
 
@@ -61,7 +80,12 @@ class TailscaledService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "starting")
-        if (Appctr.isRunning()) return START_STICKY
+        ProxyState.setUserState(this, true)
+        TileService.requestListeningState(
+            applicationContext,
+            ComponentName(applicationContext, ProxyTileService::class.java)
+        )
+        if (ProxyState.isActualRunning()) return START_STICKY
         start()
         startNotification()
         applicationContext.sendBroadcast(Intent("START"))
@@ -83,6 +107,11 @@ class TailscaledService : Service() {
         stopForeground(STOP_FOREGROUND_REMOVE)
         Appctr.stop()
         stopSelf()
+        ProxyState.setUserState(this, false)
+        TileService.requestListeningState(
+            applicationContext,
+            ComponentName(applicationContext, ProxyTileService::class.java)
+        )
         applicationContext.sendBroadcast(Intent("STOP"))
     }
 
@@ -96,11 +125,13 @@ class TailscaledService : Service() {
             Log.d(TAG, "receive message: ${msg.what}")
             when (msg.what) {
                 MSG_SAY_HELLO -> {
-                    applicationContext.sendBroadcast(Intent(if (Appctr.isRunning()) "START" else "STOP"))
+                    applicationContext.sendBroadcast(Intent(if (ProxyState.isUserLetRunning(this.context)) "START" else "STOP"))
                 }
+
                 MSG_STOP -> {
                     context.stopMe()
                 }
+
                 MSG_START -> context.onStartCommand(null, 0, 0)
                 else -> super.handleMessage(msg)
             }

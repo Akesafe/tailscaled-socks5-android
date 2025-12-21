@@ -36,4 +36,7 @@
 
     <!-- Notification -->
     <string name="notification_title">Tailscaled is running</string>
+
+    <string name="force_bg_title">Force background running</string>
+    <string name="force_bg_subtitle">Make best effort to keep running in the background</string>
 </resources>

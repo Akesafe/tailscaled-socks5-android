@@ -33,4 +33,7 @@
 
     <!-- Notification -->
     <string name="notification_title">Tailscaled 正在运行</string>
+
+    <string name="force_bg_title">强制最大化后台</string>
+    <string name="force_bg_subtitle">尽最大努力确保后台运行</string>
 </resources>
