@@ -1,9 +1,9 @@
 name: Android CI
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: 
   push:
-    branches: [ "main" ]
+    branches: [ "main" ] 
 
 jobs:
   build:
@@ -39,6 +39,8 @@ jobs:
       - name: build core
         run: |
           export CORE_HOME=${PWD}/tailscale
+          # 【魔法修复指令】：把原作者硬编码的 windows 路径强行替换为 linux 路径
+          sed -i 's/windows-x86_64/linux-x86_64/g' app/src/main/jniLibs/build.sh
           sh app/src/main/jniLibs/build.sh
 
       - name: build appctr
@@ -48,12 +50,12 @@ jobs:
           gomobile init
           sh build.sh
 
-      - name: Build Debug APK
+      - name: Build Debug APK 
         run: |
           chmod +x gradlew
           ./gradlew app:assembleDebug --stacktrace
 
-      - name: upload_apks
+      - name: upload_apks 
         uses: actions/upload-artifact@v5
         with:
           name: tailscaled-debug-apks
